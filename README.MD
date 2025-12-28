@@ -25,7 +25,7 @@
 - Bước 2: Character Segmentation - Tách ký tự
 - Bước 3: Character Recognition - Nhận diện ký tự
 
-<p align="center"><img src="/img/download.png" width="300"></p>
+<p align="center"><img src="./img/download.png" width="300"></p>
 <p align="center"><i>Figure 1. The main stages in the license plate recognition algorithm </i></p>
 
 ---
@@ -46,7 +46,7 @@
 | 6 | Phát hiện cạnh Canny | Canny Edge Detection (250, 255) |
 | 7 | Tìm vị trí và lọc biển số Contour | Tìm contour 4 cạnh, lọc theo tỉ lệ |
 
-<p align="center"><img src="/img/download (1).png" width="300"></p>
+<p align="center"><img src="./img/download (1).png" width="300"></p>
 <p align="center"><i>Figure 2. The main stages in detecting and extract the license plate </i></p>
 
 #### Chi tiết về tiền xử lí (Preprocess.py):
@@ -197,7 +197,7 @@ Mô hình **CNN_threshold** sử dụng cùng pipeline tiền xử lý như KNN 
 
 **Pipeline kiến trúc CNN chi tiết:**
 
-<p align="center"><img src="/img/cnnarchitecture.png" width="300"></p>
+<p align="center"><img src="./img/cnnarchitecture.png" width="300"></p>
 <p align="center"><i>Figure 20. Pipeline kiến trúc CNN chi tiết</i></p>
 
 **Mã nguồn kiến trúc:**
@@ -313,7 +313,7 @@ Mô hình **CNN** sử dụng phương pháp phát hiện biển số tiên ti�
 
 **Kiến trúc U-Net Small Pipeline:**
 
-<p align="center"><img src="/img/unet_small.png" width="300"></p>
+<p align="center"><img src="./img/unet_small.png" width="300"></p>
 <p align="center"><i>Figure 25. U-Net Small Pipeline</i></p>
 
 **Thành phần DoubleConv Block:**
@@ -417,7 +417,7 @@ class UNetSmall(nn.Module):
 
 #### 2.3.2 Pipeline xử lý tổng quan
 
-<p align="center"><img src="/img/cnnpipeline.png" width="300"></p>
+<p align="center"><img src="./img/cnnpipeline.png" width="300"></p>
 <p align="center"><i>Figure 26. Pipeline xử lý tổng quan</i></p>
 
 #### 2.3.3 Các phương pháp phát hiện ký tự
@@ -584,32 +584,8 @@ accuracy = accuracy_score(y_test, y_pred)
 
 #### 2.4.3 Pipeline xử lý SVM
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                         SVM PIPELINE                                      │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  INPUT: Character Image (from segmentation)                               │
-│    ↓                                                                     │
-│  Grayscale conversion                                                     │
-│    ↓                                                                     │
-│  Resize to 30 × 60                                                       │
-│    ↓                                                                     │
-│  HOG Feature Extraction                                                   │
-│    - Block normalization                                                  │
-│    - Gradient computation                                                 │
-│    - Histogram binning                                                    │
-│    ↓                                                                     │
-│  Feature Vector (1D array)                                                │
-│    ↓                                                                     │
-│  SVM Classifier                                                           │
-│    - Find optimal hyperplane                                              │
-│    - Calculate decision boundary                                          │
-│    ↓                                                                     │
-│  OUTPUT: Predicted Character Class                                        │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+<p align="center"><img src="./img/svmarchitecture.png" width="300"></p>
+<p align="center"><i>Figure 27. Pipeline xử lý SVM</i></p>
 
 #### 2.4.4 Thử nghiệm mô hình SVM
 
