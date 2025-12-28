@@ -89,12 +89,10 @@ Việc lấy ngưỡng sẽ giúp ta tách được thông tin biển số và t
 - Xoay ảnh theo góc đã tính. Nếu ngược lại điểm A nằm cao hơn điểm B ta cho góc quay âm.
 
 ```python
-# Tính góc xoay
 doi = abs(y1 - y2)
 ke = abs(x1 - x2)
 angle = math.atan(doi / ke) * (180.0 / math.pi)
 
-# Xoay ảnh
 if x1 < x2:
     rotationMatrix = cv2.getRotationMatrix2D(ptPlateCenter, -angle, 1.0)
 else:
@@ -108,11 +106,9 @@ roi = cv2.warpAffine(roi, rotationMatrix, (width, height))
 Từ ảnh nhị phân, ta tìm contour cho các ký tự (phần màu trắng). Sau đó vẽ những hình chữ nhật bao quanh các ký tự đó. Tuy nhiên việc tìm contour này cũng bị nhiễu dẫn đến việc máy xử lí sai mà tìm ra những hình ảnh không phải ký tự. Ta sẽ áp dụng các đặc điểm về tỉ lệ chiều cao/rộng của ký tự, diện tích của ký tự so với biển số để lọc:
 
 ```python
-# Điều kiện lọc ký tự
-Min_char = 0.01  # Diện tích tối thiểu
-Max_char = 0.09  # Diện tích tối đa
+Min_char = 0.01
+Max_char = 0.09
 if (Min_char * roiarea < char_area < Max_char * roiarea) and (0.25 < ratiochar < 0.7):
-    # Ký tự hợp lệ
 ```
 
 <p align="center"><img src="./KNN/run/Screenshot 2025-12-28 130023.png" width="300"></p>
@@ -136,7 +132,7 @@ if (Min_char * roiarea < char_area < Max_char * roiarea) and (0.25 < ratiochar <
 - File `flattened_images.txt` lưu ma trận flatten của các kí tự (giá trị 0 hoặc 255)
 
 ```python
-# Cấu trúc KNN Model
+
 @dataclass(frozen=True)
 class KNNConfig:
     resized_image_width: int = 20
@@ -147,11 +143,11 @@ class KNNConfig:
     def feature_len(self) -> int:
         return self.resized_image_width * self.resized_image_height  # 600 features
 
-# Nhận diện ký tự
 def predict_char(model, flattened_row, k=3) -> str:
     row = np.asarray(flattened_row, dtype=np.float32).reshape((1, -1))
     _ret, results, _neigh_resp, _dists = model.findNearest(row, k=k)
-    return chr(int(results[0][0]))  # Chuyển mã ASCII thành ký tự
+    return chr(int(results[0][0]))
+
 ```
 
 <p align="center"><img src="./KNN/run/Screenshot 2025-12-28 130051.png" width="300"></p>
@@ -201,80 +197,8 @@ Mô hình **CNN_threshold** sử dụng cùng pipeline tiền xử lý như KNN 
 
 **Pipeline kiến trúc CNN chi tiết:**
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CNN ARCHITECTURE PIPELINE                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  INPUT LAYER                                                                │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  Input Image: 64 x 64 x 3 (RGB)                                     │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│  BLOCK 1: DEPTHWISE-SEPARABLE CONVOLUTION                                   │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  1. Conv2d(3, 3, kernel=3x3, stride=1, padding=1, groups=3)        │   │
-│  │     └─ Depthwise Convolution: Xử lý riêng từng kênh màu            │   │
-│  │     └─ Output: 64 x 64 x 3                                         │   │
-│  │  2. BatchNorm2d(3)                                                  │   │
-│  │     └─ Chuẩn hóa batch để tăng tốc độ hội tụ                       │   │
-│  │  3. ReLU(inplace=True)                                              │   │
-│  │     └─ Hàm kích hoạt: max(0, x)                                    │   │
-│  │  4. Conv2d(3, 32, kernel=1x1)                                       │   │
-│  │     └─ Pointwise Convolution: Kết hợp thông tin giữa các kênh      │   │
-│  │     └─ Output: 64 x 64 x 32                                        │   │
-│  │  5. BatchNorm2d(32)                                                 │   │
-│  │  6. ReLU(inplace=True)                                              │   │
-│  │  7. MaxPool2d(2)                                                    │   │
-│  │     └─ Giảm chiều: 64 → 32                                         │   │
-│  │     └─ Output: 32 x 32 x 32                                        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│  BLOCK 2: STANDARD CONVOLUTION                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  8. Conv2d(32, 64, kernel=3x3, padding=1)                          │   │
-│  │     └─ Standard Convolution: Trích xuất đặc trưng phức tạp        │   │
-│  │     └─ Output: 32 x 32 x 64                                        │   │
-│  │  9. BatchNorm2d(64)                                                 │   │
-│  │  10. ReLU(inplace=True)                                             │   │
-│  │  11. MaxPool2d(2)                                                   │   │
-│  │      └─ Giảm chiều: 32 → 16                                        │   │
-│  │      └─ Output: 16 x 16 x 64                                       │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│  GLOBAL POOLING                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  12. AdaptiveAvgPool2d((1, 1))                                      │   │
-│  │      └─ Global Average Pooling: Giảm xuống 1x1                     │   │
-│  │      └─ Output: 1 x 1 x 64                                         │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│  FULLY CONNECTED LAYERS                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  13. Flatten()                                                       │   │
-│  │      └─ Chuyển tensor 3D → 1D                                      │   │
-│  │      └─ Output: 64                                                  │   │
-│  │  14. Linear(64, 128)                                                │   │
-│  │      └─ Fully Connected Layer                                       │   │
-│  │      └─ Output: 128                                                 │   │
-│  │  15. ReLU(inplace=True)                                             │   │
-│  │  16. Linear(128, num_classes)                                       │   │
-│  │      └─ Output Layer: 35 classes (0-9, A-Z trừ I, O, Q)           │   │
-│  │      └─ Output: 35                                                  │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│  OUTPUT                                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  Predicted Character (argmax of 35 classes)                         │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+<p align="center"><img src="/img/cnnarchitecture.png" width="300"></p>
+<p align="center"><i>Figure 20. Pipeline kiến trúc CNN chi tiết</i></p>
 
 **Mã nguồn kiến trúc:**
 
@@ -383,84 +307,120 @@ model = Sequential(
 
 Mô hình **CNN** sử dụng phương pháp phát hiện biển số tiên tiến hơn với **U-Net Segmentation** để phát hiện vùng biển số chính xác hơn, kết hợp với **Perspective Transform** để cắt và căn chỉnh biển số. Đầu vào cho mạng nhận diện ký tự là ảnh màu RGB thay vì ảnh nhị phân.
 
-#### 2.3.1 Pipeline xử lý
+#### 2.3.1 Kiến trúc U-Net Small (Plate Segmentation Model)
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    CNN FULL PIPELINE                                      │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  STEP 1: PLATE DETECTION (U-Net Segmentation)                            │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │  Input: Original Image                                              │ │
-│  │    ↓                                                                │ │
-│  │  Resize to 256 × 256                                               │ │
-│  │    ↓                                                                │ │
-│  │  U-Net Small Model (plate_seg.pth)                                  │ │
-│  │    ↓                                                                │ │
-│  │  Output: Binary Mask (probability > 0.5)                            │ │
-│  │    ↓                                                                │ │
-│  │  Morphology (Close + Open) để làm sạch mask                        │ │
-│  │    ↓                                                                │ │
-│  │  Find Contour → MinAreaRect → 4 Corner Points                      │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                     │
-│                                    ▼                                     │
-│  STEP 2: PLATE WARPING (Perspective Transform)                           │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │  Order 4 corner points                                              │ │
-│  │    ↓                                                                │ │
-│  │  cv2.getPerspectiveTransform()                                      │ │
-│  │    ↓                                                                │ │
-│  │  cv2.warpPerspective() → Warped Plate (320 × 96)                   │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                     │
-│                                    ▼                                     │
-│  STEP 3: CHARACTER DETECTION (Auto: MSER / Contour)                      │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │  Method 1: MSER (Maximally Stable Extremal Regions)                │ │
-│  │    - Detect stable regions                                          │ │
-│  │    - Filter by aspect ratio (0.15 - 0.9)                           │ │
-│  │    - Filter by height (15% - 85% of plate height)                  │ │
-│  │                                                                     │ │
-│  │  Method 2: Contour-based                                            │ │
-│  │    - Gaussian Blur + Otsu Threshold                                 │ │
-│  │    - Find External Contours                                         │ │
-│  │    - Filter by size and aspect ratio                                │ │
-│  │                                                                     │ │
-│  │  Auto Mode: Chọn phương pháp tốt nhất dựa trên score               │ │
-│  │    ↓                                                                │ │
-│  │  NMS (Non-Maximum Suppression) để loại bỏ overlap                  │ │
-│  │    ↓                                                                │ │
-│  │  Output: List of (x, y, w, h) bounding boxes                       │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                     │
-│                                    ▼                                     │
-│  STEP 4: CHARACTER RECOGNITION (CNN)                                     │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │  For each character box:                                            │ │
-│  │    - Crop character from plate                                      │ │
-│  │    - Resize to 64 × 64                                             │ │
-│  │    - Convert to RGB tensor                                          │ │
-│  │    - Feed to CNN model (cnn_model.pth)                             │ │
-│  │    - Apply position-based masking:                                  │ │
-│  │      • Position 0-1: Force digits only                             │ │
-│  │      • Position 2: Force alphabet only                              │ │
-│  │      • Position 3+: Force digits only                               │ │
-│  │    - Argmax → Predicted character                                   │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                     │
-│                                    ▼                                     │
-│  STEP 5: OUTPUT                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │  Combine first line + second line characters                        │ │
-│  │  Format: "XX A - XXXXX" or "XX A XXXXX"                            │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+**U-Net** là kiến trúc mạng nơ-ron tích chập được thiết kế đặc biệt cho bài toán **semantic segmentation**. Trong đồ án này, nhóm sử dụng phiên bản **U-Net Small** được tối ưu hóa cho việc phát hiện vùng biển số xe.
+
+**Kiến trúc U-Net Small Pipeline:**
+
+<p align="center"><img src="/img/unet_small.png" width="300"></p>
+<p align="center"><i>Figure 25. U-Net Small Pipeline</i></p>
+
+**Thành phần DoubleConv Block:**
+
+Mỗi block trong U-Net Small sử dụng **DoubleConv** - hai lớp convolution liên tiếp:
+
+```python
+class DoubleConv(nn.Module):
+    def __init__(self, in_ch: int, out_ch: int) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+        )
 ```
 
-#### 2.3.2 Các phương pháp phát hiện ký tự
+**Mã nguồn kiến trúc U-Net Small:**
+
+```python
+class UNetSmall(nn.Module):
+
+    def __init__(self, base: int = 32) -> None:
+        super().__init__()
+        
+        self.down1 = DoubleConv(3, base)           # 3 → 32
+        self.pool1 = nn.MaxPool2d(2)
+        self.down2 = DoubleConv(base, base * 2)    # 32 → 64
+        self.pool2 = nn.MaxPool2d(2)
+        self.down3 = DoubleConv(base * 2, base * 4) # 64 → 128
+        self.pool3 = nn.MaxPool2d(2)
+        
+        self.bottleneck = DoubleConv(base * 4, base * 8)  # 128 → 256
+        
+        self.up3 = nn.ConvTranspose2d(base * 8, base * 4, 2, stride=2)
+        self.conv3 = DoubleConv(base * 8, base * 4)  # 256 → 128
+        
+        self.up2 = nn.ConvTranspose2d(base * 4, base * 2, 2, stride=2)
+        self.conv2 = DoubleConv(base * 4, base * 2)  # 128 → 64
+        
+        self.up1 = nn.ConvTranspose2d(base * 2, base, 2, stride=2)
+        self.conv1 = DoubleConv(base * 2, base)      # 64 → 32
+        
+        self.head = nn.Conv2d(base, 1, kernel_size=1)  # 32 → 1
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        x1 = self.down1(x)
+        x2 = self.down2(self.pool1(x1))
+        x3 = self.down3(self.pool2(x2))
+        xb = self.bottleneck(self.pool3(x3))
+        
+
+        u3 = self.up3(xb)
+        u3 = torch.cat([u3, x3], dim=1)  # Skip connection
+        u3 = self.conv3(u3)
+        
+        u2 = self.up2(u3)
+        u2 = torch.cat([u2, x2], dim=1)  # Skip connection
+        u2 = self.conv2(u2)
+        
+        u1 = self.up1(u2)
+        u1 = torch.cat([u1, x1], dim=1)  # Skip connection
+        u1 = self.conv1(u1)
+        
+        return self.head(u1)
+```
+
+**Bảng tóm tắt các lớp U-Net Small (base=32):**
+
+| Phần | Lớp | Input Channels | Output Channels | Output Size (H=256) |
+|:---|:---|:---:|:---:|:---:|
+| **Encoder** | down1 (DoubleConv) | 3 | 32 | 256 × 256 |
+| | pool1 (MaxPool2d) | 32 | 32 | 128 × 128 |
+| | down2 (DoubleConv) | 32 | 64 | 128 × 128 |
+| | pool2 (MaxPool2d) | 64 | 64 | 64 × 64 |
+| | down3 (DoubleConv) | 64 | 128 | 64 × 64 |
+| | pool3 (MaxPool2d) | 128 | 128 | 32 × 32 |
+| **Bottleneck** | bottleneck (DoubleConv) | 128 | 256 | 32 × 32 |
+| **Decoder** | up3 (ConvTranspose2d) | 256 | 128 | 64 × 64 |
+| | concat + conv3 | 256 | 128 | 64 × 64 |
+| | up2 (ConvTranspose2d) | 128 | 64 | 128 × 128 |
+| | concat + conv2 | 128 | 64 | 128 × 128 |
+| | up1 (ConvTranspose2d) | 64 | 32 | 256 × 256 |
+| | concat + conv1 | 64 | 32 | 256 × 256 |
+| **Head** | head (Conv2d 1×1) | 32 | 1 | 256 × 256 |
+
+**Đặc điểm chính của U-Net Small:**
+
+| Đặc điểm | Mô tả |
+|:---|:---|
+| **Skip Connections** | Kết nối trực tiếp từ encoder sang decoder giúp bảo toàn thông tin không gian |
+| **Symmetric Architecture** | Encoder và Decoder có cấu trúc đối xứng |
+| **Base Channels** | base=32 (có thể điều chỉnh để tăng/giảm capacity) |
+| **Input** | Ảnh RGB 3×H×W |
+| **Output** | Segmentation mask 1×H×W (logits) |
+| **Activation** | Sigmoid để chuyển logits thành xác suất [0,1] |
+
+#### 2.3.2 Pipeline xử lý tổng quan
+
+<p align="center"><img src="/img/cnnpipeline.png" width="300"></p>
+<p align="center"><i>Figure 26. Pipeline xử lý tổng quan</i></p>
+
+#### 2.3.3 Các phương pháp phát hiện ký tự
 
 **1. MSER (Maximally Stable Extremal Regions):**
 
@@ -500,7 +460,7 @@ def detect_characters_auto(bgr_img, gray_img, min_expected=4, max_expected=12):
     contour_boxes = detect_characters_contour(bgr_img, gray_img)
 ```
 
-#### 2.3.3 Position-based Character Recognition
+#### 2.3.4 Position-based Character Recognition
 
 Để tăng độ chính xác, mô hình áp dụng ràng buộc dựa trên vị trí ký tự trong biển số Việt Nam:
 
@@ -525,7 +485,7 @@ def predict_char_with_position(model, classes, device, img_roi, position):
     return classes[torch.argmax(masked_logits)]
 ```
 
-#### 2.3.4 Thử nghiệm mô hình CNN
+#### 2.3.5 Thử nghiệm mô hình CNN
 
 **Kết quả với Image 1:**
 

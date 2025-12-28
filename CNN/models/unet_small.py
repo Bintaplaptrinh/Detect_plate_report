@@ -21,12 +21,6 @@ class DoubleConv(nn.Module):
 
 
 class UNetSmall(nn.Module):
-    """U-Net nhỏ, đủ cho demo đồ án.
-
-    Input: 3xHxW
-    Output: 1xHxW (logits)
-    """
-
     def __init__(self, base: int = 32) -> None:
         super().__init__()
 
